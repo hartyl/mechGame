@@ -1,0 +1,140 @@
+-- written by groverbuger for g3d
+-- MIT license
+
+----------------------------------------------------------------------------------------------------
+-- simple obj loader
+----------------------------------------------------------------------------------------------------
+
+-- give path of file
+-- returns a lua table representation
+return function (path, uFlip, vFlip, noMap)
+    local positions, uvs, normals = {}, {}, {}
+    local result = {}
+    local unique = {}
+    local repeated = {}
+	local spheres = {}
+	local currentGroup = nil
+	local groups = {}
+	local groupsId = -1
+	local bones = {}
+
+    -- go line by line through the file
+    for line in love.filesystem.lines(path) do
+        local words = {}
+
+        -- split the line into words
+        for word in line:gmatch "([^%s]+)" do
+            table.insert(words, word)
+        end
+
+        local firstWord = words[1]
+
+        if firstWord == "v" then
+            -- if the first word in this line is a "v", then this defines a vertex's position
+			-- for an unofficial .OBJ format (supported in blender), it can also contain color information
+
+            local t = {}
+            for i=2,#words do
+                t[i-1] = tonumber(words[i])
+            end
+			t.group = groups[currentGroup] or nil
+            table.insert(positions, t)
+        elseif firstWord == "vt" then
+            -- if the first word in this line is a "vt", then this defines a texture coordinate
+
+            local u, v = tonumber(words[2]), tonumber(words[3])
+
+            -- optionally flip these texture coordinates
+            if uFlip then u = 1 - u end
+            if vFlip then v = 1 - v end
+
+            table.insert(uvs, {u, v})
+        elseif firstWord == "vn" then
+            -- if the first word in this line is a "vn", then this defines a vertex normal
+            table.insert(normals, {tonumber(words[2]), tonumber(words[3]), tonumber(words[4])})
+        elseif firstWord == "f" then
+
+            -- if the first word in this line is a "f", then this is a face
+            -- a face takes three point definitions
+            -- the arguments a point definition takes are vertex (and color), vertex texture, vertex normal in that order
+
+            local vertices = {}
+            for i = 2, #words do
+                local v, vt, vn = words[i]:match "(%d*)/(%d*)/(%d*)"
+                v, vt, vn = tonumber(v), tonumber(vt), tonumber(vn)
+				local word = words[i]
+				local v = {
+                        v and positions[v][1] or nil,
+                        v and positions[v][2] or nil,
+                        v and positions[v][3] or nil,
+                        vt and uvs[vt][1] or nil,
+                        vt and uvs[vt][2] or nil,
+                        vn and normals[vn][1] or nil,
+                        vn and normals[vn][2] or nil,
+                        vn and normals[vn][3] or nil,
+                        v and positions[v][4] or nil,	--	colors
+                        v and positions[v][5] or nil,
+                        v and positions[v][6] or nil,
+                        v and positions[v][7] or nil,
+                        v and positions[v].group or nil,
+                    }
+				if not noMap then
+					if not repeated[word] then
+						table.insert( unique, v)
+						repeated[word] = #unique
+					end
+					table.insert(vertices, repeated[word])
+				else
+					table.insert(vertices, v)
+				end
+            end
+
+            -- triangulate the face if it's not already a triangle
+            if #vertices > 3 then
+                -- choose a central vertex
+                local centralVertex = vertices[1]
+
+                -- connect the central vertex to each of the other vertices to create triangles
+                for i = 2, #vertices - 1 do
+                    table.insert(result, centralVertex)
+                    table.insert(result, vertices[i])
+                    table.insert(result, vertices[i + 1])
+                end
+            else
+                for i = 1, #vertices do
+                    table.insert(result, vertices[i])
+                end
+            end
+		elseif firstWord == "E" then
+			words[3] = tonumber(words[3])
+			words[4] = tonumber(words[4])
+			words[5] = tonumber(words[5])
+			words[6] = tonumber(words[6])-1
+            spheres[words[2]]={unpack(words,3)}
+            table.insert(spheres, spheres[words[2]])
+		elseif firstWord == "g" then
+			currentGroup = words[2]
+			if not groups[currentGroup] then
+				groupsId = groupsId+1
+				groups[currentGroup] = groupsId
+			end
+		elseif firstWord == 'B' then
+			local name = words[2]
+			bones[name] = {}
+			local p = {}
+			for i=3, 5 do
+				p[i-2] = tonumber(words[i])
+			end
+			local q = {}
+			for i=6, 9 do
+				q[i-5] = tonumber(words[i])
+			end
+			bones[name].translation = p
+			bones[name].rotation = q
+		-- more new keywords here
+        end
+    end
+
+	if noMap then unique = result result = nil end
+    return unique, result, spheres, bones
+end
