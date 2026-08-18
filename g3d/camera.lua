@@ -160,7 +160,6 @@ end
 -- simple first person camera movement with WASD
 -- put this local function in your love.update to use, passing in dt
 
-local K = K
 local Crux = -- [[
 function (s) end
 --]]Crux
@@ -195,7 +194,7 @@ function camera.firstPersonMovement(dt)
     for _, sh in next, shader.list do
       shader.prepare(sh, camera)
     end
-    camera.positionPre:setV(camera.position)
+    camera.positionPre:copy(camera.position)
     Drawed = 1
     camera.moved = false
   end

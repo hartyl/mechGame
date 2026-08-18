@@ -206,14 +206,14 @@ end
 ---@nodiscard
 function model.newInstanceMesh(positions, format, mode)
   return love.graphics.newMesh(
-    format or { { "InstancePosition", "float", 4 } },
+    format or { { "InstancePosition", "float", 3 } },
     positions,
     nil,
     mode or "static")
 end
 
 ---helper function
----@param mesh userdata
+---@param mesh love.Mesh
 function model:reinstanciate(mesh)
   self.instanceMesh = mesh
   self.mesh:attachAttribute("InstancePosition", mesh, "perinstance")
@@ -221,7 +221,7 @@ end
 
 ---set multiple positions for self
 ---@param positions table
----@return userdata
+---@return love.Mesh
 function model:instanciate(positions)
   self.positions = positions
   self:reinstanciate(self.newInstanceMesh(positions))
@@ -258,10 +258,13 @@ function model:drawMultiple(shader, positions)
   shader = shader or self.shader
   lg.setShader(shader)
   local prevInstaMesh = self.instanceMesh
-  self:reinstanciate(self.newInstanceMesh(positions))
+  local instaMesh = self.newInstanceMesh(positions)
+  self:reinstanciate(instaMesh)
   shader:send("modelMatrix", self.matrix)
   lg.drawInstanced(self.mesh, #positions)
-  self:reinstanciate(prevInstaMesh)
+  if prevInstaMesh then
+    self:reinstanciate(prevInstaMesh)
+  end
   lg.setShader()
 end
 

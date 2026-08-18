@@ -3,7 +3,6 @@ local shader = {
   list = {},
 }
 
-
 shader.shader = love.graphics.newShader(shader.path)
 -- local prepared = {}
 function shader.sendMat3(matrix, Shader, var)

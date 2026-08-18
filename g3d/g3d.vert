@@ -1,7 +1,8 @@
 // written by groverbuger for g3d
 // MIT license
 
-attribute vec3 InstancePosition;
+attribute vec4 InstancePosition;
+attribute float Size;
 uniform lowp float[6] projectionArray;
 uniform mat3 viewMatrix;
 uniform mat4 modelMatrix;
@@ -20,8 +21,8 @@ vec4 position(mat4 transformProjection, vec4 vertexPosition) {
   // calculate the positions of the transformed coordinates on the screen
   // save each step of the process, as these are often useful when writing custom fragment shaders
   vec4 screenPosition;
-  worldPosition = (modelMatrix * vertexPosition).xyz;
-  worldPosition += InstancePosition;
+  worldPosition = (modelMatrix * vertexPosition).xyz * (Size+1.);
+  worldPosition += InstancePosition.xyz;
   viewPosition = viewMatrix * worldPosition;
   mat4 secondMat = mat4(
     vec4(projectionArray[0],projectionArray[1],0.,0.),

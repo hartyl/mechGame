@@ -16,6 +16,7 @@ local function unpackD(t1, t2)
       t1[1], t1[2], t1[3],
       t2[1], t2[2], t2[3]
 end
+---@class vector
 local vector = {}
 do
   local k = { 1, 2, 3, 4, x = 1, y = 2, z = 3, w = 4 }
@@ -58,7 +59,7 @@ function vector:set(...)
   self[1], self[2], self[3] = ...
 end
 
-function vector:setV(other)
+function vector:copy(other)
   self[1], self[2], self[3] = other[1], other[2], other[3]
 end
 

@@ -12,7 +12,8 @@
        /\____/
        \/###/
 
---]==========================] --
+        with a Hartyl's touch
+--]==========================]--
 
 local pathpre = package.path
 -- so that far polygons don't overlap near polygons
