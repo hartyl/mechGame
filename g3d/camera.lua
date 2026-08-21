@@ -10,10 +10,7 @@ local tan, atan2 = math.tan, math.atan2
 local sin, cos = math.sin, math.cos
 local pi = math.pi
 local min, max = math.min, math.max
-local ceil = math.ceil
-local function unpack3(t)
-  return t[1], t[2], t[3]
-end
+local function unpack3(t) return t[1], t[2], t[3] end
 
 local camera = {
   fov = pi / 2,
@@ -26,7 +23,7 @@ local camera = {
   up = vector { 0, 1, 0 },
 
   viewMatrix = newMatrix(),
-  projectionMatrix = {}, --newMatrix(),
+  projectionMatrix = {},
   speed = 9,
 }
 
@@ -161,13 +158,13 @@ end
 -- put this local function in your love.update to use, passing in dt
 
 local Crux = -- [[
-function (s) end
+function (_) end
 --]]Crux
 function camera.firstPersonMovement(dt)
   local self = camera
   -- collect inputs
   Crux "start FPS"
-  local speed = self.speed * (K['lctrl'] and 90 or 1)
+  local speed = self.speed * (K['lctrl'] and 2^-4 or 2^-6)
   local moveX = (K["w"] and 1 or 0) + (K["s"] and -1 or 0)
   local moveZ = (K["d"] and 1 or 0) + (K["a"] and -1 or 0)
   local moveY = (K["lshift"] and 1 or 0) + (K["space"] and -1 or 0)

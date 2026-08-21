@@ -40,21 +40,20 @@ local shoulder1 = mech.shoulder1
 shoulder1.parent = chest
 local shoulder2 = mech.shoulder2
 shoulder2.parent = chest
-mech.forward = vec { -1, 0, 0 }
-mech.right = vec { 0, 0, -1 }
+mech.forward = vec { 0, 0, -1 }
+mech.right = vec { 1, 0, 0 }
 tummy.len = hipLen
 chest.len = hipLen * .5
 mech.head.len = hipLen * .5
 
 local shoulderLen = .6
 local walking = require 'scripts.animation' "animations/Walking.obj"
-local startWalking = require 'scripts.animation' "animations/Start Walking.obj"
 local stopWalking = require 'scripts.animation' "animations/Stop Walking.obj"
 local run = require 'scripts.animation' "animations/run.obj"
+--walking = run
 local fcurves = stopWalking
 local frame = 20
 
-local order = 0
 local iframe = 1
 local mirror = false
 local speed = 1
@@ -64,22 +63,28 @@ function mech.update(dt)
   if iframe >= #fcurves.Middle["Hips"] then
     frame = 1
     iframe = 0
-    if fcurves == walking then
-      if not K.up then
+    if fcurves == walking or fcurves == run then
+      if not K.w then
         fcurves = stopWalking
       end
       mirror = not mirror
     elseif fcurves == stopWalking then
-      if K.up then
-        fcurves = startWalking
+      if K.w then
         mirror = not mirror
       else
-        frame = #fcurves.Middle["Hips"]
+        frame = #fcurves.Middle["Hips"] - 1
       end
-    elseif fcurves == startWalking then
-      fcurves = walking
-      mirror = not mirror
     end
+  end
+  if fcurves ~= walking and K.w and not K.lctrl then
+    fcurves = walking
+    iframe = 1
+    frame = 1
+  end
+  if fcurves ~= run and K.w and K.lctrl then
+    fcurves = run
+    iframe = 1
+    frame = 1
   end
   local pf = frame - iframe
   local nf = 1 - (frame - iframe)
@@ -102,174 +107,52 @@ function mech.update(dt)
         pos = "Middle"
       end
       self.last = self.next
-      self.lastMirror = self.nextMirror
-      self.next = vec(fcurves[pos][s][iframe])
-      self.nextMirror = mirror
+      local n = vec(fcurves[pos][s][iframe])
+      local m = (mirror and -1 or 1)
+      local len = -(vec { n.z, 0, n.x }) * m
+      local ang = math.atan2(n.z, n.x) * m + require 'g3d'.camera.getDirectionPitch()
+      self.next = vec { 0, n.y, 0 }
+      self.next.x = -math.sin(ang) * len
+      self.next.z = math.cos(ang) * len
       self.len = -(self.next)
-      local r
-      r = self.last * nf * { self.lastMirror and -1 or 1, 1, 1 }
-      r = r + self.next * pf * { self.nextMirror and -1 or 1, 1, 1 }
-      return r
     end
   else
-    function fcurve(self)
-      local r
-      r = self.last * nf * { self.lastMirror and -1 or 1, 1, 1 }
-      r = r + self.next * pf * { self.nextMirror and -1 or 1, 1, 1 }
-      return r
-    end
+    function fcurve() end
   end
   body.parent.pos = vec { 0, 0, 0 }
   mul = mul + ((K.b and 1 or 0) - (K.v and 1 or 0)) * .001
-  local function lFcurve(self, name, str)
-    local delta = (fcurve(self, name) + self.parent.pos - self.pos) * (mul * (str or 1))
-    self.pos = self.pos + delta * (1-math.min(1,self.gnd*10))
+  local function lFcurve(self, boneName, str)
+    fcurve(self, boneName)
+    local r
+    r = self.last * nf
+    r = r + self.next * pf
+    local delta = (r + self.parent.pos - self.pos) * (mul * (str or 1))
+    local d = 2
+    self.pos = self.pos + delta * (((1 - self.gnd) + (d - 1)) / d)
     self.parent.pos = self.parent.pos - delta
   end
   if not K.x then
-    lFcurve(mech.head, "Head")
-    lFcurve(chest, "Neck")
-    lFcurve(tummy, "Spine1")
+    lFcurve(chest, "Spine2", 2)
+    lFcurve(tummy, "Spine", 2)
     lFcurve(hip1, "LeftUpLeg")
     lFcurve(hip2, "RightUpLeg")
+    lFcurve(mech.head, "Head")
     lFcurve(knee1, "LeftLeg", 1.3)
     lFcurve(knee2, "RightLeg", 1.3)
-    lFcurve(foot1, "LeftFoot", 1)
-    lFcurve(foot2, "RightFoot", 1)
+    lFcurve(foot1, "LeftFoot", 2)
+    lFcurve(foot2, "RightFoot", 2)
     lFcurve(shoulder1, "LeftShoulder")
     lFcurve(shoulder2, "RightShoulder")
-    --foot1.size = ((fcurves[not mirror and "Left" or "Right"]["ToeBase"][iframe][2])*1)
-    --foot2.size = ((fcurves[not mirror and "Right" or "Left"]["ToeBase"][iframe][2]))*1
   end
-
-  order = 1 --- order
-
-  --forward
-  --local t = (tummy.pos - body.pos)
-  --local h = (hip1.pos - hip2.pos)
-  --mech.up = vec { vec.normalize(vec.unpack(t)) }
-  --mech.forward = vec { h:cross(mech.up) }
-  --mech.right = vec { t:cross(mech.forward) }
-
-  --do return end
-  for hip, knee in next, { [hip1] = knee1, [hip2] = knee2 } do
-    local dist = (knee.len ^ 2 + hipLen ^ 2) ^ .5
-    tummy:push(knee, dist, .5)
-    --constraint tummy to a ring
-    dist = ((hipLen * .5) ^ 2 + (hipLen * .5) ^ 2) ^ .5 - .3
-    tummy:push(hip, dist, .5)
+  for i, v in next, mech do
+    if type(v) == "table" then
+      if v.len then v:dstick(v.parent, v.len) end
+      if v.applyS then v:applyS(dt) end
+    end
   end
-  --tummy:pull(body, tummy.len*1.2)
-
-  --
-  for i = order + 1, 2 - order, 1 - order - order do
-    local knee = i == 1 and knee1 or knee2
-    local hip = i == 1 and hip1 or hip2
-    local foot = i == 1 and foot1 or foot2
-    local shoulder = i == 1 and shoulder1 or shoulder2
-    --attach
-    knee:dstick(hip, knee.len) --.1 + .6 * knee.len)
-    knee.right = vec {
-      vec.normalize(
-        (knee.pos - hip.pos):cross(mech.right)
-      )
-    }
-    local pos = knee.right + knee.pos
-    local fPos = foot.pos
-    foot:push({ pos = pos, gnd = 0 }, foot.len * 1.5, 1)
-    local spd = foot.pos - fPos
-    knee.pos = knee.pos - spd
-    knee:dstick(foot, foot.len)
-    foot:push(hip, foot.len, .8)
-    shoulder:dstick(chest, shoulderLen)
-    shoulder:push(tummy, shoulderLen)
-    shoulder:pull(hip, hipLen * 2)
+  if K.w then
+    body.pos = body.pos + mech.forward * dt * 4
   end
-  --shoulder1:dstick(shoulder2, shoulderLen * 2)
-  local bPos = body.pos
-  --body:push({pos=hipMid, gnd=0}, .2)
-  --body:pull({pos=hipMid, gnd=0}, .4)
-  local bDel = body.pos - bPos
-  hip1.pos = hip1.pos - bDel * .7
-  hip2.pos = hip2.pos - bDel * .7
-
-  mech.head:dstick(chest, mech.head.len)
-  chest:dstick(tummy, chest.len)
-  chest:push(body, chest.len * 1.2, .5)
-
-  if love.keyboard.isDown "i" then
-    body.pos.z = body.pos.z + .1
-    knee1.pos.z = 0
-    knee1.Pos.z = 0
-    knee2.pos.z = 0
-    knee2.Pos.z = 0
-  end
-  if love.keyboard.isDown "j" then
-    tummy.pos.z = tummy.pos.z + .1
-  end
-  if love.keyboard.isDown "o" then
-    body.pos.x = body.pos.x - .1
-  end
-  if love.keyboard.isDown "u" then
-    --body.pos.y = body.pos.y - 10 * dt
-    tummy.pos.y = tummy.pos.y - 5 * dt
-  end
-  if love.keyboard.isDown "y" then
-    --body.pos.y = body.pos.y - 10 * dt
-    tummy.pos.y = tummy.pos.y - 4 * dt
-  end
-  if love.keyboard.isDown "l" then
-    foot1.pos.y = foot1.pos.y - 2 * dt
-  end
-  if love.keyboard.isDown "k" then
-    foot2.pos.y = foot2.pos.y - 2 * dt
-  end
-  if love.keyboard.isDown "n" then
-    knee1.pos.y = knee1.pos.y - 2 * dt
-  end
-  if love.keyboard.isDown "m" then
-    knee2.pos.y = knee2.pos.y - 2 * dt
-  end
-  if love.keyboard.isDown "e" then
-    tummy.pos = vec { 0, -3.5, 0 }
-  end
-  if love.keyboard.isDown "r" then
-    body.pos = vec { 0, 0, 0 }
-    tummy.pos = vec { 0, 0, 0 }
-    chest.pos = vec { 0, 0, 0 }
-    mech.head.pos = vec { 0, 0, 0 }
-    hip1.pos = vec { 0, 0, 0 }
-    hip2.pos = vec { 0, 0, 0 }
-    knee1.pos = vec { 0, 0, 0 }
-    knee2.pos = vec { 0, 0, 0 }
-    foot1.pos = vec { 0, 0, 0 }
-    foot2.pos = vec { 0, 0, 0 }
-    shoulder1.pos = vec { 0, 0, 0 }
-    shoulder2.pos = vec { 0, 0, 0 }
-
-    body.Pos = vec { 0, 0, 0 }
-    hip1.Pos = vec { 0, 0, 0 }
-    hip2.Pos = vec { 0, 0, 0 }
-    knee1.Pos = vec { 0, 0, 0 }
-    knee2.Pos = vec { 0, 0, 0 }
-    foot1.Pos = vec { 0, 0, 0 }
-    foot2.Pos = vec { 0, 0, 0 }
-    chest.Pos = vec { 0, 0, 0 }
-    mech.head.Pos = vec { 0, 0, 0 }
-  end
-
-  knee1:applyS(dt)
-  knee2:applyS(dt)
-  foot1:applyS(dt)
-  foot2:applyS(dt)
-  hip1:applyS(dt)
-  hip2:applyS(dt)
-  body:applyS(dt)
-  tummy:applyS(dt)
-  chest:applyS(dt)
-  mech.head:applyS(dt)
-  shoulder1:applyS(dt)
-  shoulder2:applyS(dt)
 end
 
 local drawP, drawL = unpack(require 'scripts.drawMech')
@@ -277,6 +160,7 @@ local lg = love.graphics
 
 function mech.draw()
   drawP(body)
+  lg.setColor(.5, .5, .5, 1)
   drawP(tummy)
   drawP(chest)
   drawP(mech.head)
@@ -285,12 +169,14 @@ function mech.draw()
   drawP(knee1)
   drawP(foot1)
   drawL(hip1, knee1)
+  lg.setColor(.3, .3, .2, 1)
   drawP(shoulder1)
   lg.setColor(0, 0, 0, 1)
   drawP(hip2)
   drawP(knee2)
   drawP(foot2)
   drawL(hip2, knee2)
+  lg.setColor(.2, .3, .3, 1)
   drawP(shoulder2)
   lg.setColor(1, 1, 1, 1)
 
@@ -305,10 +191,6 @@ function mech.draw()
   --lg.line(0, body.getFloor(0), Winw, body.getFloor(Winw))
   --lg.print(knee1.gnd .. "\n" .. knee2.gnd)
   lg.print(mul, 64, 32)
-end
-
-function love.mousepressed(...)
-  mx, my, b = ...
 end
 
 return mech

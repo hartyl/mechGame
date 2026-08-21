@@ -36,6 +36,7 @@ function love.update(dt)
 end
 
 function love.draw()
+  camera.position:copy(camera.position + (mech.body.pos - mech.forward * 2 - camera.position) * .01)
   love.graphics.setColor(.5,.5,.5,1)
   plane:draw()
   love.graphics.setColor(1,1,1,1)
@@ -54,12 +55,9 @@ local vec = require 'g3d'.vector
 
 function love.mousemoved(_, _, dx, dy)
   camera.firstPersonLook(dx, dy, true)
-end
-
-local vec = require 'g3d'.vector
-
-function love.mousemoved(_, _, dx, dy)
-  camera.firstPersonLook(dx, dy, true)
+  local dir,pit = camera.getDirectionPitch()
+  mech.forward:set(math.cos(dir),0, math.sin(dir))
+  mech.right:set(math.sin(dir),0, math.cos(dir))
   if love.mouse.isDown(1) then
     mech.tummy.pos = mech.tummy.pos + vec{dx/10,0,dy/10}
   end
@@ -67,6 +65,14 @@ end
 
 function love.keypressed(k)
   K[k] = k == "escape" and love.event.quit() or true
+  if k == "x" then
+    local exp = mech.body.pos + {math.random()*2-1,math.random()*2-1,math.random()*2-1}
+    for i,v in next, mech do
+      if type(v) == "table" and v.pos then
+        v:push({pos = vec{vec.unpack(exp)}}, 1, .8)
+      end
+    end
+  end
 end
 
 function love.keyreleased(k)
